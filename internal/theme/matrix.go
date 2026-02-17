@@ -11,6 +11,13 @@ type MatrixColors struct {
 	Border      color.Color
 	Highlight   color.Color
 	Warning     color.Color
+
+	// Status indicator colors (colored circles)
+	StatusGreen  color.Color
+	StatusYellow color.Color
+	StatusOrange color.Color
+	StatusRed    color.Color
+	StatusBlack  color.Color
 }
 
 // NewMatrixColors returns the Matrix color palette
@@ -23,19 +30,26 @@ func NewMatrixColors() *MatrixColors {
 		Border:      color.RGBA{0, 214, 57, 255},   // #00D639
 		Highlight:   color.RGBA{175, 255, 74, 255}, // #AFFF4A
 		Warning:     color.RGBA{255, 51, 0, 255},   // #FF3300
+
+		// Status indicator colors
+		StatusGreen:  color.RGBA{45, 189, 0, 255},  // #2DBD00
+		StatusYellow: color.RGBA{255, 214, 0, 255}, // #FFD600
+		StatusOrange: color.RGBA{255, 153, 0, 255}, // #FF9900
+		StatusRed:    color.RGBA{255, 48, 0, 255},  // #FF3000
+		StatusBlack:  color.RGBA{26, 26, 26, 255},  // #1A1A1A
 	}
 }
 
 // Widget dimensions
 const (
-	MinWidgetWidth = 280
-	TitleBarHeight = 24
-	PaddingOuter   = 10
-	PaddingInner   = 6
-	SectionGap     = 8
-	FontSizeTitle  = 14
-	FontSizeBody   = 13
-	FontSizeSmall  = 11
+	MinWidgetWidth = 340
+	TitleBarHeight = 32
+	PaddingOuter   = 12
+	PaddingInner   = 8
+	SectionGap     = 10
+	FontSizeTitle  = 18
+	FontSizeBody   = 16
+	FontSizeSmall  = 14
 
 	// Margins from screen edges
 	MarginRight  = 16 // Keep widget away from right screen edge
@@ -44,5 +58,5 @@ const (
 
 // Widget title text
 const (
-	DefaultTitle = "MATRIX WIDGET"
+	DefaultTitle = "Z.AI API STATUS"
 )

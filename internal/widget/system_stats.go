@@ -2,52 +2,33 @@ package widget
 
 import (
 	"fmt"
+	"os"
 	"runtime"
-	"time"
+
+	"github.com/shirou/gopsutil/v4/process"
 )
 
 // updateSystemStats updates CPU and memory usage of this widget
 func (w *Widget) updateSystemStats() {
-	// Get memory usage in MB
-	var m runtime.MemStats
-	runtime.ReadMemStats(&m)
-
-	// Use Sys (system memory) which is closer to Task Manager's "Working Set"
-	// Alloc only shows heap allocation (much smaller than actual memory usage)
-	sysMB := float64(m.Sys) / 1024 / 1024
-	w.memUsageMB = sysMB
-
-	// Simple, realistic CPU estimation based on goroutines
-	// Note: True system CPU requires platform-specific APIs (not available in Go runtime)
-	now := time.Now()
-	if !w.lastCPUTime.IsZero() {
-		elapsed := now.Sub(w.lastCPUTime).Seconds()
-		if elapsed > 0 {
-			// Base CPU on goroutine count with a small randomization
-			numGoroutines := float64(runtime.NumGoroutine())
-
-			// Simple heuristic: each goroutine roughly 0.5-1% CPU
-			// This is a rough approximation, not accurate measurement
-			estimatedCPU := numGoroutines * 0.5
-
-			// Add slight variation for realism
-			if w.cpuUsage == 0 {
-				w.cpuUsage = estimatedCPU
-			} else {
-				// Smooth transition (exponential moving average)
-				w.cpuUsage = w.cpuUsage*0.95 + estimatedCPU*0.05
-			}
-
-			// Clamp to reasonable range (0.5% - 30% for typical Go app)
-			if w.cpuUsage > 30 {
-				w.cpuUsage = 30
-			}
-			if w.cpuUsage < 0.5 {
-				w.cpuUsage = 0.5
-			}
-		}
+	// Get current process
+	p, err := process.NewProcess(int32(os.Getpid()))
+	if err != nil {
+		return // Skip update if process lookup fails
 	}
-	w.lastCPUTime = now
+
+	// Memory: RSS (Resident Set Size) - matches Task Manager's Working Set better
+	// RSS includes physical pages allocated, Working Set = RSS + shared
+	memInfo, err := p.MemoryInfo()
+	if err == nil {
+		// RSS is in bytes, convert to MB
+		w.memUsageMB = float64(memInfo.RSS) / 1024 / 1024
+	}
+
+	// CPU: Get process CPU percentage
+	cpuPercent, err := p.CPUPercent()
+	if err == nil {
+		w.cpuUsage = cpuPercent / float64(runtime.NumCPU())
+	}
 }
 
 // formatCPUText formats CPU usage into a display string
@@ -57,5 +38,5 @@ func (w *Widget) formatCPUText() string {
 
 // formatMEMText formats memory usage into a display string
 func (w *Widget) formatMEMText() string {
-	return fmt.Sprintf("%.2f MB", w.memUsageMB)
+	return fmt.Sprintf("%.1f MB", w.memUsageMB)
 }

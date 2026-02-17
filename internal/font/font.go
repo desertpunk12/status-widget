@@ -90,43 +90,31 @@ func (m *Manager) getFace(size float64) *text.GoTextFace {
 	return face
 }
 
-// TitleFace returns the face for title text (14px)
+// TitleFace returns the face for title text (18px)
 func (m *Manager) TitleFace() *text.GoTextFace {
+	return m.getFace(18)
+}
+
+// BodyFace returns the face for body text (16px)
+func (m *Manager) BodyFace() *text.GoTextFace {
+	return m.getFace(16)
+}
+
+// SmallFace returns the face for small text (14px)
+func (m *Manager) SmallFace() *text.GoTextFace {
 	return m.getFace(14)
 }
 
-// BodyFace returns the face for body text (13px)
-func (m *Manager) BodyFace() *text.GoTextFace {
-	return m.getFace(13)
-}
-
-// SmallFace returns the face for small text (11px)
-func (m *Manager) SmallFace() *text.GoTextFace {
-	return m.getFace(11)
-}
-
 // DrawColoredText draws text with the specified color at the given position
-// Emojis are rendered in white to preserve their original colors
 func DrawColoredText(screen *ebiten.Image, str string, face *text.GoTextFace, x, y int, clr color.Color) {
 	if face == nil {
 		// Skip rendering if no face available
 		return
 	}
 
-	// Check if string contains emoji - emoji need white color to preserve original colors
-	drawColor := clr
-	for _, r := range str {
-		// Emoji ranges: Miscellaneous Symbols and Pictographs (0x1F300+)
-		// Also includes the specific emoji we use
-		if r >= 0x1F300 || (r >= 0x1F600 && r <= 0x1F64F) || r == '⏳' {
-			drawColor = color.White
-			break
-		}
-	}
-
 	op := &text.DrawOptions{}
 	op.GeoM.Translate(float64(x), float64(y))
-	op.ColorScale.ScaleWithColor(drawColor)
+	op.ColorScale.ScaleWithColor(clr)
 
 	text.Draw(screen, str, face, op)
 }

@@ -111,30 +111,47 @@ func (w *Widget) updateMessages(limit *ZaiLimit) {
 	resetTime := time.UnixMilli(limit.NextResetTime)
 	availPct := 100 - int(limit.Percentage)
 
-	// Choose emoji icon based on availability
-	icon := "🟢"
-	switch {
-	case availPct < 60:
-		icon = "🟡"
-	case availPct < 40:
-		icon = "🟠"
-	case availPct < 20:
-		icon = "🔴"
-	case availPct == 0:
-		icon = "⬛"
+	// Determine status for colored circle indicator
+	if availPct == 0 {
+		w.zaiStatus = "none"
+	} else if availPct < 20 {
+		w.zaiStatus = "crit"
+	} else if availPct < 40 {
+		w.zaiStatus = "warn"
+	} else if availPct < 60 {
+		w.zaiStatus = "low"
+	} else {
+		w.zaiStatus = "ok"
 	}
 
-	// Format messages with emoji icons
+	// Format messages (no emoji - vector circles will be drawn)
 	timeStr := resetTime.Format("03:04PM")
 	usageStr := fmt.Sprintf("%.2f", limit.Percentage)
 
-	w.messages = []string{
-		"> Z.AI API STATUS",
-		"> Available: " + fmt.Sprintf("%d%% %s", availPct, icon),
-		"> Usage: " + usageStr + "%",
-		"> Reset at: " + timeStr + " ⏳",
-		">",
-		"> Tokens remaining:",
-		fmt.Sprintf("> %d tokens", limit.Remaining),
+	// Calculate time remaining until reset
+	now := time.Now()
+	timeRemaining := resetTime.Sub(now)
+	var timeRemainingStr string
+	if timeRemaining > 0 {
+		hours := int(timeRemaining.Hours())
+		minutes := int(timeRemaining.Minutes()) % 60
+		if hours > 0 {
+			timeRemainingStr = fmt.Sprintf("> Reset in: %dh %dm", hours, minutes)
+		} else {
+			timeRemainingStr = fmt.Sprintf("> Reset in: %dm", minutes)
+		}
+	} else {
+		timeRemainingStr = "> Reset: unused"
 	}
+
+	w.messages = []string{
+		"> Available: " + fmt.Sprintf("%d%%", availPct),
+		"> Usage: " + usageStr + "%",
+		"> Reset at: " + timeStr,
+		timeRemainingStr,
+	}
+
+	// Store usage percentage for color gradient rendering
+	w.usagePercent = limit.Percentage
+	w.resetTime = resetTime
 }

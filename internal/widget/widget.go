@@ -44,7 +44,15 @@ type Widget struct {
 	// Z.ai API monitoring
 	apiKey        string
 	zaiData       *ZaiResponse
+	zaiStatus     string    // "ok", "low", "warn", "crit", "none"
+	usagePercent  float64   // 0-100% for color gradient
+	resetTime     time.Time // API quota reset time
 	lastApiUpdate time.Time
+
+	// Task Manager comparison values (for debugging)
+	taskManagerCPU    string
+	taskManagerMEM    float64
+	lastTaskMgrUpdate time.Time
 }
 
 // New creates a new widget instance
@@ -56,8 +64,8 @@ func New() *Widget {
 		messages:    []string{"> Initializing...", "> Loading API status..."},
 		colors:      theme.NewMatrixColors(),
 		fontManager: font.NewManager(),
-		width:       280,
-		height:      200,
+		width:       180,
+		height:      180,
 	}
 	// Initial API fetch
 	w.updateZaiAPI()
@@ -79,6 +87,11 @@ func (w *Widget) Update() error {
 		w.lastUpdate = time.Now()
 	}
 
+	// Update Task Manager comparison stats every 5 seconds (PowerShell is expensive)
+	if time.Since(w.lastTaskMgrUpdate) >= 5*time.Second {
+		w.lastTaskMgrUpdate = time.Now()
+	}
+
 	// Update Z.ai API status every 30 seconds
 	if time.Since(w.lastApiUpdate) >= 30*time.Second {
 		w.updateZaiAPI()
@@ -98,6 +111,9 @@ func (w *Widget) Draw(screen *ebiten.Image) {
 
 	// Draw messages
 	w.drawMessages(screen)
+
+	// Draw CPU and memory stats at bottom right (status bar style)
+	w.drawBottomStatusBar(screen)
 }
 
 // Layout returns the widget dimensions

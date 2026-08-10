@@ -75,7 +75,7 @@ func New() *Widget {
 // Update handles the game update loop
 func (w *Widget) Update() error {
 	// Check for ESC key to exit
-	if ebiten.IsKeyPressed(ebiten.KeyEscape) {
+	if ebiten.IsKeyPressed(ebiten.KeyEscape) && ebiten.IsKeyPressed(ebiten.KeyShift) {
 		return ebiten.Termination
 	}
 

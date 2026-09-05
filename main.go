@@ -1,8 +1,10 @@
 package main
 
 import (
+	"image"
 	"log"
 
+	"status-widget/internal/tray"
 	"status-widget/internal/widget"
 
 	"github.com/hajimehoshi/ebiten/v2"
@@ -11,6 +13,25 @@ import (
 func main() {
 	// Create widget instance
 	w := widget.New()
+
+	// System tray (notification area) icon showing the available quota, next
+	// to the battery/wifi indicators. The tray loop runs on its own goroutine;
+	// the widget pushes icon updates through the tray updater callback.
+	w.SetTrayUpdater(func(icon image.Image, tooltip string) {
+		iconICO, err := tray.EncodeICO(icon)
+		if err != nil {
+			log.Printf("tray icon encode failed: %v", err)
+			return
+		}
+		tray.Set(iconICO, tooltip)
+	})
+	w.SetQuitChannel(tray.QuitRequested())
+
+	// Double-clicking the tray icon toggles the widget window visibility
+	// (ESC hides it; see widget.Update)
+	tray.SetOnDoubleClick(w.ToggleVisible)
+
+	go tray.Run()
 
 	// Configure window
 	ebiten.SetWindowSize(w.Layout(0, 0))
@@ -30,14 +51,20 @@ func main() {
 	ebiten.SetWindowFloating(true)   // Always-on-top
 	ebiten.SetWindowTitle("Status Widget")
 
-	// Configure transparent window
+	// Configure transparent window. SkipTaskbar is disabled on purpose: the
+	// widget shows in the Windows taskbar with a dynamic icon displaying the
+	// available Z.ai quota percentage (see widget.updateTaskbarIcon).
 	opts := &ebiten.RunGameOptions{
 		ScreenTransparent: true,
-		SkipTaskbar:       true,
 	}
 
 	// Run game
-	if err := ebiten.RunGameWithOptions(w, opts); err != nil {
+	err := ebiten.RunGameWithOptions(w, opts)
+
+	// Remove the tray icon on any exit path (ESC+Shift or tray Quit)
+	tray.Quit()
+
+	if err != nil {
 		log.Fatal(err)
 	}
 }

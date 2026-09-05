@@ -155,3 +155,16 @@ func (w *Widget) updateMessages(limit *ZaiLimit) {
 	w.usagePercent = limit.Percentage
 	w.resetTime = resetTime
 }
+
+// availablePercent returns the available Z.ai quota as a whole-number
+// percentage clamped to the 0-100 range.
+func (w *Widget) availablePercent() int {
+	avail := 100 - int(w.usagePercent)
+	if avail < 0 {
+		avail = 0
+	}
+	if avail > 100 {
+		avail = 100
+	}
+	return avail
+}

@@ -1,13 +1,17 @@
 package widget
 
 import (
+	"image"
 	"image/color"
+	"log"
 	"time"
 
 	"status-widget/internal/font"
 	"status-widget/internal/theme"
+	"status-widget/internal/win"
 
 	"github.com/hajimehoshi/ebiten/v2"
+	"github.com/hajimehoshi/ebiten/v2/inpututil"
 	"github.com/hajimehoshi/ebiten/v2/vector"
 )
 
@@ -19,6 +23,12 @@ type Widget struct {
 	dragStartY  int
 	dragWindowX int
 	dragWindowY int
+
+	// Window visibility (hidden = moved off-screen)
+	hidden    bool
+	restoreX  int
+	restoreY  int
+	toggleReq chan struct{}
 
 	// Content
 	messages  []string
@@ -49,6 +59,13 @@ type Widget struct {
 	resetTime     time.Time // API quota reset time
 	lastApiUpdate time.Time
 
+	// Taskbar icon state (last rendered availability, -1 = none yet)
+	taskbarIconPct int
+
+	// External integrations
+	trayUpdater func(icon image.Image, tooltip string) // System tray refresh callback
+	quitChan    <-chan struct{}                        // External quit request (e.g. tray menu)
+
 	// Task Manager comparison values (for debugging)
 	taskManagerCPU    string
 	taskManagerMEM    float64
@@ -64,19 +81,48 @@ func New() *Widget {
 		messages:    []string{"> Initializing...", "> Loading API status..."},
 		colors:      theme.NewMatrixColors(),
 		fontManager: font.NewManager(),
-		width:       180,
-		height:      180,
+		width:       theme.DefaultWidgetWidth,
+		height:      theme.DefaultWidgetHeight,
+		toggleReq:   make(chan struct{}, 1),
 	}
 	// Initial API fetch
 	w.updateZaiAPI()
+
+	// Mark taskbar icon as not yet rendered; it is generated on the first
+	// Update() frame once a graphics context exists.
+	w.taskbarIconPct = taskbarIconNone
 	return w
 }
 
 // Update handles the game update loop
 func (w *Widget) Update() error {
-	// Check for ESC key to exit
-	if ebiten.IsKeyPressed(ebiten.KeyEscape) && ebiten.IsKeyPressed(ebiten.KeyShift) {
+	// Check for external quit request (e.g. tray menu Quit)
+	select {
+	case <-w.quitChan:
 		return ebiten.Termination
+	default:
+	}
+
+	// Check for ESC key to exit (tap-safe: IsKeyJustPressed catches presses
+	// shorter than one frame, unlike the polled IsKeyPressed)
+	if inpututil.IsKeyJustPressed(ebiten.KeyEscape) {
+		log.Printf("DEBUG: ESC pressed, shift=%v hidden=%v", ebiten.IsKeyPressed(ebiten.KeyShift), w.hidden)
+		if ebiten.IsKeyPressed(ebiten.KeyShift) {
+			return ebiten.Termination
+		}
+
+		// ESC alone hides the widget; double-click the tray icon to bring
+		// it back
+		if !w.hidden {
+			w.setHidden(true)
+		}
+	}
+
+	// Apply pending visibility toggles requested from the tray
+	select {
+	case <-w.toggleReq:
+		w.setHidden(!w.hidden)
+	default:
 	}
 
 	w.updateDrag()
@@ -98,11 +144,19 @@ func (w *Widget) Update() error {
 		w.lastApiUpdate = time.Now()
 	}
 
+	// Refresh taskbar icon and title when availability changes
+	w.updateTaskbarIcon()
+
 	return nil
 }
 
 // Draw renders the widget
 func (w *Widget) Draw(screen *ebiten.Image) {
+	// Hidden window is off-screen; skip rendering entirely
+	if w.hidden {
+		return
+	}
+
 	// Draw semi-transparent black background (opacity ~85%)
 	vector.DrawFilledRect(screen, 0, 0, float32(w.width), float32(w.height), color.RGBA{0, 0, 0, 220}, false)
 
@@ -128,6 +182,57 @@ func (w *Widget) AddMessage(msg string) {
 	if len(w.messages) > 20 {
 		w.messages = w.messages[len(w.messages)-20:]
 	}
+}
+
+// SetTrayUpdater registers a callback invoked from the game loop whenever
+// the system tray icon should refresh. The icon image carries straight or
+// premultiplied alpha; the receiver handles format conversion.
+func (w *Widget) SetTrayUpdater(fn func(icon image.Image, tooltip string)) {
+	w.trayUpdater = fn
+}
+
+// SetQuitChannel registers a channel whose closure requests termination,
+// e.g. from the system tray Quit menu item.
+func (w *Widget) SetQuitChannel(ch <-chan struct{}) {
+	w.quitChan = ch
+}
+
+// ToggleVisible requests the window to be shown/hidden. Safe to call from
+// any goroutine (e.g. the tray thread); the switch is applied on the next
+// Update tick to keep window state confined to the game loop.
+func (w *Widget) ToggleVisible() {
+	select {
+	case w.toggleReq <- struct{}{}:
+	default: // A toggle is already pending; drop duplicates
+	}
+}
+
+// setHidden hides or shows the window. Preferred path is a true Win32 hide
+// (SW_HIDE): like Discord, the window vanishes entirely, taskbar button
+// included, and reappears at its old spot on show. If the Win32 handle
+// cannot be resolved, it falls back to parking the window off-screen.
+// Must be called from the game loop.
+func (w *Widget) setHidden(hidden bool) {
+	if hidden == w.hidden {
+		return
+	}
+	w.dragging = false // Cancel any in-flight drag
+
+	hwnd, hwerr := win.GameWindow()
+	log.Printf("DEBUG: setHidden(%v) hwnd=%d err=%v", hidden, hwnd, hwerr)
+	if hwerr == nil {
+		if hidden {
+			win.Hide(hwnd)
+		} else {
+			win.Show(hwnd)
+		}
+	} else if hidden {
+		w.restoreX, w.restoreY = ebiten.WindowPosition()
+		ebiten.SetWindowPosition(theme.WindowHiddenPos, theme.WindowHiddenPos)
+	} else {
+		ebiten.SetWindowPosition(w.restoreX, w.restoreY)
+	}
+	w.hidden = hidden
 }
 
 // updateDrag handles the drag-to-move functionality

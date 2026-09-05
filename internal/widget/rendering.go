@@ -4,12 +4,12 @@ import (
 	"fmt"
 	"image/color"
 
+	"status-widget/internal/font"
+	"status-widget/internal/theme"
+
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/text/v2"
 	"github.com/hajimehoshi/ebiten/v2/vector"
-
-	"status-widget/internal/font"
-	"status-widget/internal/theme"
 )
 
 // drawTitleBar renders the title bar
@@ -57,26 +57,20 @@ func (w *Widget) drawMessages(screen *ebiten.Image) {
 	}
 }
 
-// Draw CPU and memory stats at bottom right (status bar style)
+// drawBottomStatusBar renders the CPU/memory stats at the bottom right
 func (w *Widget) drawBottomStatusBar(screen *ebiten.Image) {
-	// Create a face that's between SmallFace (14px) and BodyFace (16px) - 11px
-	statusFace := &text.GoTextFace{
-		Source: w.fontManager.SmallFace().Source,
-		Size:   11,
+	statusFace := w.fontManager.StatusFace()
+	if statusFace == nil {
+		return // No font available
 	}
 
 	// Format status text: "CPU 0.5% | MEM 45MB"
 	statusText := fmt.Sprintf("CPU %s | MEM %s", w.formatCPUText(), w.formatMEMText())
-
-	// Measure text to position at bottom right
 	textWidth, textHeight := text.Measure(statusText, statusFace, 0)
 
 	// Position at bottom right with padding
-	padding := float32(theme.PaddingOuter)
-	x := float32(w.width) - float32(textWidth) - padding
-	y := float32(w.height) - float32(textHeight) - padding - 6
-
-	// Draw with dim text color
+	x := float32(w.width) - float32(textWidth) - float32(theme.PaddingOuter)
+	y := float32(w.height) - float32(textHeight) - float32(theme.PaddingOuter) - 6
 	font.DrawColoredText(screen, statusText, statusFace, int(x), int(y), w.colors.DimText)
 }
 

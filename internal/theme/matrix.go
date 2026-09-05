@@ -18,6 +18,9 @@ type MatrixColors struct {
 	StatusOrange color.Color
 	StatusRed    color.Color
 	StatusBlack  color.Color
+
+	// Taskbar icon accents
+	IconText color.Color
 }
 
 // NewMatrixColors returns the Matrix color palette
@@ -37,6 +40,9 @@ func NewMatrixColors() *MatrixColors {
 		StatusOrange: color.RGBA{255, 153, 0, 255}, // #FF9900
 		StatusRed:    color.RGBA{255, 48, 0, 255},  // #FF3000
 		StatusBlack:  color.RGBA{26, 26, 26, 255},  // #1A1A1A
+
+		// Taskbar icon accents
+		IconText: color.RGBA{255, 255, 255, 255}, // White stands out on any taskbar
 	}
 }
 
@@ -51,9 +57,23 @@ const (
 	FontSizeBody   = 16
 	FontSizeSmall  = 14
 
+	// Default widget size
+	DefaultWidgetWidth  = 180
+	DefaultWidgetHeight = 180
+
 	// Margins from screen edges
 	MarginRight  = 16 // Keep widget away from right screen edge
 	MarginBottom = 16 // Keep widget away from bottom screen edge
+
+	// Off-screen coordinate used to park a hidden window (matches the
+	// position Windows assigns to minimized windows)
+	WindowHiddenPos = -32000
+)
+
+// Font sizes for auxiliary text
+const (
+	FontSizeStatus = 11 // Bottom status text size
+	FontSizeIcon   = 9  // Taskbar icon label size
 )
 
 // Widget title text

@@ -56,7 +56,8 @@ The widget will appear at the **bottom-right corner of your screen**, just above
 ## Usage
 
 - **Drag widget**: Click and hold anywhere on the widget to move it
-- **Exit**: Press `ESC` to quit
+- **Hide widget**: Press `ESC` (or double-click the tray icon) to hide/show the widget window
+- **Exit**: Press `Shift+ESC` or use `Quit` in the tray icon's right-click menu
 
 ## Project Structure
 
